@@ -1,11 +1,26 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
-
+const jwt = require('jsonwebtoken');
+const { jwtSecret } = require('../../config/secrets');
 const Users = require('../users/users-model');
+const { isValid, uniqueUser, usernameIsValid, passwordIsValid, generateToken } = require('../users/users-service');
 
 
-router.post('/register', (req, res) => {
-  res.end('implement register, please!');
+router.post('/register', isValid, uniqueUser, async (req, res) => {
+  try {
+    const rounds = process.env.BCRYPT_ROUNDS || 8;
+    const credentials = req.body
+    const hash = bcrypt.hashSync(credentials.password, rounds)
+    const addUser = await Users.add({
+      username: req.body.username,
+      password: hash
+    })
+    res.status(201).json(addUser)
+  } catch(error){
+    res.status(500).json({ message: error.message })
+  }
+});
+  // res.end('implement register, please!');
   /*
     IMPLEMENT
     You are welcome to build additional middlewares to help with the endpoint's functionality.
@@ -30,10 +45,18 @@ router.post('/register', (req, res) => {
     4- On FAILED registration due to the `username` being taken,
       the response body should include a string exactly as follows: "username taken".
   */
-});
 
-router.post('/login', (req, res) => {
-  res.end('implement login, please!');
+router.post('/login', isValid, usernameIsValid, passwordIsValid, generateToken, async  (req, res) => {
+  try {
+    const login = await Users.findBy({ username: req.body.username })
+    const user = login[0]
+    const token = generateToken(user)
+    res.status(200).json({ message: `welcome ${user.username}`, token})
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+});
+  // res.end('implement login, please!');
   /*
     IMPLEMENT
     You are welcome to build additional middlewares to help with the endpoint's functionality.
@@ -57,6 +80,5 @@ router.post('/login', (req, res) => {
     4- On FAILED login due to `username` not existing in the db, or `password` being incorrect,
       the response body should include a string exactly as follows: "invalid credentials".
   */
-});
 
 module.exports = router;
